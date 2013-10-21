@@ -5,7 +5,6 @@ using System.Web;
 using System.Web.Mvc;
 using System.Web.Mvc.Resources;
 using System.Web.Script.Serialization;
-using HandleActionRefactor.Handlers;
 using SchoStack.Web;
 
 namespace HandleActionRefactor.Controllers

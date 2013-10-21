@@ -1,14 +1,8 @@
 ﻿using FluentValidation;
 using FluentValidation.Mvc;
 using System;
-using System.Collections.Generic;
-using System.Data.Entity;
-using System.Linq;
-using System.Web;
 using System.Web.Mvc;
 using System.Web.Routing;
-using HandleActionRefactor.Controllers;
-using HandleActionRefactor.Handlers;
 using SchoStack.Web;
 using SchoStack.Web.Conventions;
 using SchoStack.Web.Conventions.Core;
