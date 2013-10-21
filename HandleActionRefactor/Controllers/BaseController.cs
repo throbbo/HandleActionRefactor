@@ -42,11 +42,7 @@ namespace HandleActionRefactor.Controllers
 			return result;
 		}
 	}
-	public class MyObj<TRet, T>
-	{
-		public Func<TRet, bool> On;
-		public Func<T, ActionResult> Run;
-	}
+
 	public class HandleActionResult<T, TRet> : ActionResult
 	{
 		private readonly IInvoker _invoker;
