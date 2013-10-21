@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Web;
 using System.Web.Mvc;
+using HandleActionRefactor.Handlers;
+using SchoStack.Web;
 
 namespace HandleActionRefactor.Controllers
 {
@@ -15,7 +17,7 @@ namespace HandleActionRefactor.Controllers
         }
 
         [HttpPost]
-        public ActionResult Index(HomeInputModel inputModel)
+        public ActionResult Index1(HomeInputModel inputModel)
         {
             if (!ModelState.IsValid)
                 return Index();
@@ -27,19 +29,20 @@ namespace HandleActionRefactor.Controllers
             return RedirectToAction("Index");
         }
 
-        //[HttpPost]
-        //public ActionResult Index(HomeInputModel inputModel)
-        //{
-        //    return Handle(inputModel)
-        //        .Returning<HomeResponseModel>()
-        //        .On(x => x.GotoAbout, _ => RedirectToAction("About"))
-        //        .OnSuccess(_ => RedirectToAction("Index"))
-        //        .OnError(_ => Index());
-        //}
+		[HttpPost]
+		public ActionResult Index(HomeInputModel inputModel)
+		{
+			return Handle(inputModel)
+			.Returning<HomeResponseModel>()
+			.On(x => x.GotoAbout, _ => RedirectToAction("About"))
+			.OnSuccess(_ => RedirectToAction("Index"))
+			.OnError(_ => Index());
+		}
 
-        public ActionResult About()
+    	public ActionResult About()
         {
             return View();
         }
     }
+
 }

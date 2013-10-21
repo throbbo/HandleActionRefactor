@@ -8,6 +8,7 @@ using System.Web;
 using System.Web.Mvc;
 using System.Web.Routing;
 using HandleActionRefactor.Controllers;
+using HandleActionRefactor.Handlers;
 using SchoStack.Web;
 using SchoStack.Web.Conventions;
 using SchoStack.Web.Conventions.Core;
@@ -63,6 +64,7 @@ namespace HandleActionRefactor
                     y.ConnectImplementationsToTypesClosing(typeof (IHandler<,>));
                 });
                 x.For<IInvoker>().Use(sm => new Invoker(z => sm.TryGetInstance(z)));
+				//x.For<IControllerHandler>().Use(sm2 => new Invoker(y => sm2.TryGetInstance(y)));
                 x.FillAllPropertiesOfType<IInvoker>();
             });
         }
