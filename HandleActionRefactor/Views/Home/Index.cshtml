@@ -1,0 +1,25 @@
+﻿@model HomeViewModel
+@using HandleActionRefactor.Controllers
+@{
+    ViewBag.Title = "Home Page";
+}
+
+<h2>Name and Age Verification</h2>
+
+<p>
+    @Html.ValidationSummary()
+    
+    @using (Html.Form<HomeInputModel>()) {
+        
+        <div>
+            <span>Name: </span>
+            @Html.Input(x=>x.Name)
+        </div>
+        <div>
+            <span>Age: </span>
+            @Html.Input(x=>x.Age)
+        </div>
+        
+        @Html.Submit("Verify")
+    }
+</p>
