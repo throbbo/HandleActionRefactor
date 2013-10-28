@@ -61,6 +61,14 @@ namespace HandleActionRefactor.Controllers
 
 		public override void ExecuteResult(ControllerContext context)
 		{
+			if (!context.Controller.ViewData.ModelState.IsValid)
+				if (_error != null)
+				{
+					context.HttpContext.Response.Write("in Error call");
+					_error(_inputModel).ExecuteResult(context);
+					return;
+				}
+				
 			_result = _invoker.Execute<TRet>(_inputModel);	// Run Handler Get Result
 
 			foreach (var on in Ons)
@@ -74,13 +82,8 @@ namespace HandleActionRefactor.Controllers
 			}
 
 			if (_success != null){
+				context.HttpContext.Response.Write("success");
 				_success(_inputModel).ExecuteResult(context);
-				return;
-			}
-
-			if (_error != null)
-			{
-				_error(_inputModel).ExecuteResult(context);
 				return;
 			}
 		}
