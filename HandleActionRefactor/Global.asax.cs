@@ -54,8 +54,9 @@ namespace HandleActionRefactor
                     y.AssemblyContainingType<IInvoker>();
                     y.WithDefaultConventions();
                     y.ConnectImplementationsToTypesClosing(typeof (IValidator<>));
-                    y.ConnectImplementationsToTypesClosing(typeof (IHandler<>));
-                    y.ConnectImplementationsToTypesClosing(typeof (IHandler<,>));
+                    y.ConnectImplementationsToTypesClosing(typeof (ICommandHandler<>));
+					y.ConnectImplementationsToTypesClosing(typeof(IHandler<>));
+					y.ConnectImplementationsToTypesClosing(typeof(IHandler<,>));
                 });
                 x.For<IInvoker>().Use(sm => new Invoker(z => sm.TryGetInstance(z)));
 				//x.For<IControllerHandler>().Use(sm2 => new Invoker(y => sm2.TryGetInstance(y)));

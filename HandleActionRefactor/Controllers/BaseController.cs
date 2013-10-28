@@ -13,35 +13,77 @@ namespace HandleActionRefactor.Controllers
     {
     	public IInvoker Invoker { get; set; }
 
-		public HandleActionResult<T> Handle<T>(T inputModel)
+		public HandleActionResultBuilder<T> Handle<T>(T inputModel)
 		{
-			return new HandleActionResult<T>(inputModel, Invoker);
+			return new HandleActionResultBuilder<T>(inputModel, Invoker);
 		}
     }
 
-	public class HandleActionResult<T> : ActionResult
+	public class HandleActionResultBuilder<T>
 	{
 		private readonly T _inputModel;
 		private readonly IInvoker _invoker;
-
-		public HandleActionResult(T inputModel, IInvoker invoker)
+		private Func<ActionResult> _success;
+		private Func<ActionResult> _error;
+		
+		public HandleActionResultBuilder(T inputModel, IInvoker invoker)
 		{
 			_inputModel = inputModel;
 			_invoker = invoker;
 		}
 
-		public override void ExecuteResult(ControllerContext context)
+		public static implicit operator HandleActionResult<T>(HandleActionResultBuilder<T> builder)
 		{
+			return new HandleActionResult<T>(builder);
+		}
 
+		public HandleActionResultBuilder<T> OnSuccess(Func<ActionResult> redirectTo)
+		{
+			_success = redirectTo;
+			return this;
+		}
+
+		public HandleActionResultBuilder<T> OnError(Func<ActionResult> index)
+		{
+			_error = index;
+			return this;
 		}
 
 		public HandleActionResultBuilder<T, TRet> Returning<TRet>()
 		{
-			var result = new HandleActionResultBuilder<T, TRet>(_inputModel, _invoker);
+			var result = new HandleActionResultBuilder<T, TRet>(_inputModel, _invoker, _success, _error);
 
 			return result;
 		}
+
+		public class HandleActionResult<T> : ActionResult
+		{
+			private readonly HandleActionResultBuilder<T> _builder;
+			public HandleActionResult(HandleActionResultBuilder<T> builder )
+			{
+				_builder = builder;
+			}
+
+			public override void ExecuteResult(ControllerContext context)
+			{
+				if (!context.Controller.ViewData.ModelState.IsValid && _builder._error != null)
+				{
+					_builder._error().ExecuteResult(context);
+					return;
+				}
+
+				_builder._invoker.Execute(_builder._inputModel);	// Run Handler Get Result
+
+				if (_builder._success != null)
+				{
+					_builder._success().ExecuteResult(context);
+					return;
+				}
+			}
+
+		}
 	}
+
 
 	public class HandleActionResultBuilder<T,TRet> 
 	{
@@ -51,10 +93,14 @@ namespace HandleActionRefactor.Controllers
 		private Func<ActionResult> _error;
 		List<MyObj<TRet, T>> Ons = new List<MyObj<TRet, T>>();
 
-		public HandleActionResultBuilder(T inputModel, IInvoker invoker)
+		public HandleActionResultBuilder(T inputModel, IInvoker invoker, Func<ActionResult> baseSuccess, Func<ActionResult> baseError) 
 		{
 			_inputModel = inputModel;
 			_invoker = invoker;
+			_success = x => {
+			                	return baseSuccess.Invoke();
+			};
+			_error = baseError;
 		}
 
 
