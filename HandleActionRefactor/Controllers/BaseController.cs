@@ -13,7 +13,7 @@ namespace HandleActionRefactor.Controllers
     {
     	public IInvoker Invoker { get; set; }
 
-    	public HandleActionResult<T> Handle<T>(T inputModel)
+		public HandleActionResult<T> Handle<T>(T inputModel)
 		{
 			return new HandleActionResult<T>(inputModel, Invoker);
 		}
@@ -32,82 +32,96 @@ namespace HandleActionRefactor.Controllers
 
 		public override void ExecuteResult(ControllerContext context)
 		{
-			
+
 		}
 
-		public HandleActionResult<T,TRet> Returning<TRet>()
+		public HandleActionResultBuilder<T, TRet> Returning<TRet>()
 		{
-			var result = new HandleActionResult<T, TRet>(_invoker, _inputModel);
+			var result = new HandleActionResultBuilder<T, TRet>(_inputModel, _invoker);
 
 			return result;
 		}
 	}
 
-	public class HandleActionResult<T, TRet> : ActionResult
+	public class HandleActionResultBuilder<T,TRet> 
 	{
 		private readonly IInvoker _invoker;
 		private readonly T _inputModel;
-		private Func<T, ActionResult> _success;
-		private Func<T, ActionResult> _error;
-		private TRet _result;
+		private Func<TRet, ActionResult> _success;
+		private Func<ActionResult> _error;
+		List<MyObj<TRet, T>> Ons = new List<MyObj<TRet, T>>();
 
-		List<MyObj<TRet,T>> Ons = new List<MyObj<TRet,T>>();
-
-		public HandleActionResult(IInvoker invoker, T inputModel)
+		public HandleActionResultBuilder(T inputModel, IInvoker invoker)
 		{
-			_invoker = invoker;
 			_inputModel = inputModel;
+			_invoker = invoker;
 		}
 
-		public override void ExecuteResult(ControllerContext context)
+
+		public static implicit operator HandleActionResult<T, TRet> (HandleActionResultBuilder<T,TRet> builder )
 		{
-			if (!context.Controller.ViewData.ModelState.IsValid)
-				if (_error != null)
-				{
-					context.HttpContext.Response.Write("in Error call");
-					_error(_inputModel).ExecuteResult(context);
-					return;
-				}
-				
-			_result = _invoker.Execute<TRet>(_inputModel);	// Run Handler Get Result
-
-			foreach (var on in Ons)
-			{
-				if (on.On != null)
-					if ( on.On(_result))
-					{
-						on.Run(_inputModel).ExecuteResult(context);
-						return;
-					}
-			}
-
-			if (_success != null){
-				context.HttpContext.Response.Write("success");
-				_success(_inputModel).ExecuteResult(context);
-				return;
-			}
+			return new HandleActionResult<T, TRet>(builder);
 		}
 
-		public HandleActionResult<T, TRet> OnSuccess(Func<T, ActionResult> redirectTo)
+		public HandleActionResultBuilder<T, TRet> OnSuccess(Func<TRet, ActionResult> redirectTo)
 		{
 			_success = redirectTo;
 			return this;
 		}
 
-		public HandleActionResult<T, TRet> OnError(Func<T, ActionResult> index)
+		public HandleActionResultBuilder<T, TRet> OnError(Func<ActionResult> index)
 		{
 			_error = index;
 			return this;
 		}
 
-		public HandleActionResult<T, TRet> On(Func<TRet, bool> func, Func<T, ActionResult> redirectTo)
+		public HandleActionResultBuilder<T, TRet> On(Func<TRet, bool> func, Func<T, ActionResult> redirectTo)
 		{
 			var on = new MyObj<TRet, T>() { On = func, Run = redirectTo };
 
 			Ons.Add(on);
-			
+
 			return this;
 		}
+
+		public class HandleActionResult<T, TRet> : ActionResult
+		{
+			private readonly HandleActionResultBuilder<T, TRet> _builder;
+			public HandleActionResult(HandleActionResultBuilder<T,TRet> builder)
+			{
+				_builder = builder;
+			}
+
+			public override void ExecuteResult(ControllerContext context)
+			{
+				if (!context.Controller.ViewData.ModelState.IsValid && _builder._error != null)
+				{
+					_builder._error().ExecuteResult(context);
+					return;
+				}
+
+				var _result = _builder._invoker.Execute<TRet>(_builder._inputModel);	// Run Handler Get Result
+
+				foreach (var on in _builder.Ons)
+				{
+					if (on.On != null)
+						if (on.On(_result))
+						{
+							on.Run(_builder._inputModel).ExecuteResult(context);
+							return;
+						}
+				}
+
+				if (_builder._success != null)
+				{
+					_builder._success(_result).ExecuteResult(context);
+					return;
+				}
+			}
+
+		}
+
 	}
+
 
 }

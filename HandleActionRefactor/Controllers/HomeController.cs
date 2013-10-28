@@ -35,7 +35,7 @@ namespace HandleActionRefactor.Controllers
 			.Returning<HomeResponseModel>()
 			.On(x => x.GotoAbout, _ => RedirectToAction("About"))
 			.OnSuccess(_ => RedirectToAction("Index"))
-			.OnError(_ => Index());
+			.OnError(() => Index());
 		}
 
     	public ActionResult About()
