@@ -29,7 +29,7 @@ namespace HandleActionRefactor.Controllers
         }
 
 		[HttpPost]
-		public ActionResult Index3(HomeInputModel inputModel)
+		public ActionResult Index2(HomeInputModel inputModel)
 		{
 			return Handle(inputModel)
 			.Returning<HomeResponseModel>()
@@ -39,24 +39,32 @@ namespace HandleActionRefactor.Controllers
 		}
 
 		[HttpPost]
-		public ActionResult Index2(HomeInputModel inputModel)
+		public ActionResult Index3(HomeInputModel inputModel)
 		{
 			return Handle(inputModel)
 			.OnError(() => Index())
 			.OnSuccess(() => RedirectToAction("Index"));
 		}
 		[HttpPost]
-		public ActionResult Index(HomeInputModel inputModel)
+		public ActionResult Index4(HomeInputModel inputModel)
 		{
 			return Handle(inputModel)
-				.OnError(() => Index())
+				.OnError(Index)
 				.OnSuccess(() => RedirectToAction("Index"))
 				.Returning<HomeResponseModel>()
-				.On(x => x.GotoAbout, _ => RedirectToAction("About"))
-				;
+				.On(x => x.GotoAbout, _ => RedirectToAction("About"));
 		}
-
-
+        
+		[HttpPost]
+		public ActionResult Index(HomeInputModel inputModel)
+		{
+		    return Handle(inputModel)
+		        .Returning<HomeResponseModel>()
+		        .On(x => x.GotoAbout, _ => RedirectToAction("About"))
+		        .OnError(() => Index())
+		        .OnSuccessWithMessage(_ => RedirectToAction("Index", "Home","Robs Message"));
+		}
+				
     	public ActionResult About()
         {
             return View();

@@ -75,13 +75,15 @@ namespace HandleActionRefactor.Controllers
 				_builder._invoker.Execute(_builder._inputModel);	// Run Handler Get Result
 
 				if (_builder._success != null)
-				{
 					_builder._success().ExecuteResult(context);
-					return;
-				}
 			}
 
 		}
+
+	    public HandleActionResultBuilder<T> OnSuccessWithMessage(Func<RedirectToRouteResult> func)
+	    {
+	        return this;
+	    }
 	}
 
 
@@ -97,9 +99,7 @@ namespace HandleActionRefactor.Controllers
 		{
 			_inputModel = inputModel;
 			_invoker = invoker;
-			_success = x => {
-			                	return baseSuccess.Invoke();
-			};
+			_success = _ => baseSuccess();
 			_error = baseError;
 		}
 
@@ -130,6 +130,13 @@ namespace HandleActionRefactor.Controllers
 			return this;
 		}
 
+        public HandleActionResultBuilder<T, TRet> OnSuccessWithMessage(Func<TRet,ActionResult> redirectTo)
+        {
+            _success = redirectTo;
+
+            return this;
+        }
+
 		public class HandleActionResult<T, TRet> : ActionResult
 		{
 			private readonly HandleActionResultBuilder<T, TRet> _builder;
@@ -150,19 +157,15 @@ namespace HandleActionRefactor.Controllers
 
 				foreach (var on in _builder.Ons)
 				{
-					if (on.On != null)
-						if (on.On(_result))
-						{
-							on.Run(_builder._inputModel).ExecuteResult(context);
-							return;
-						}
+					if (on.On != null && on.On(_result))
+					{
+						on.Run(_builder._inputModel).ExecuteResult(context);
+						return;
+					}
 				}
 
 				if (_builder._success != null)
-				{
 					_builder._success(_result).ExecuteResult(context);
-					return;
-				}
 			}
 
 		}
