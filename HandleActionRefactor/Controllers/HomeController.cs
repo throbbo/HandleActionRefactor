@@ -125,16 +125,28 @@ namespace HandleActionRefactor.Controllers
 
 
         [HttpPost]
+        public ActionResult IndexJSON(HomeInputModel inputModel)
+        {
+            //var result = Handle(inputModel)
+            //    .Returning<HomeResponseModel>()
+            //    .OnError(_ => Index())
+            //    .On(x => x.GotoAbout, y => RedirectToAction("About", y))
+            //    .OnSuccessWithMessage(x => View("Success",x), "Robs Success Message GotoAbout False");
+            var tmpObj = new TempObj {GotoAbout = true, MyMessage = "Test Ajax Return Mesasge"};
+            var res = new JsonResult {Data = tmpObj};
+
+            return res;
+        }
+        [HttpPost]
         public ActionResult Index(HomeInputModel inputModel)
         {
             return Handle(inputModel)
                 .Returning<HomeResponseModel>()
                 .OnError(_ => Index())
                 .On(x => x.GotoAbout, y => RedirectToAction("About", y))
-                .OnSuccessWithMessage(x => View("Success",x), "Robs Success Message GotoAbout False")
+                .OnSuccessWithMessage(x => View("Success", x), "Robs Success Message GotoAbout False")
                 ;
         }
-
     	public ActionResult About()
         {
 
@@ -148,5 +160,6 @@ namespace HandleActionRefactor.Controllers
     public class TempObj
     {
         public bool GotoAbout { get; set; }
+        public string MyMessage { get; set; }
     }
 }

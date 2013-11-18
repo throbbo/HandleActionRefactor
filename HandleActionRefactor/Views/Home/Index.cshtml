@@ -1,4 +1,6 @@
 ﻿@model HomeViewModel
+	   
+@using System.Web.Mvc.Ajax
 @using HandleActionRefactor.Controllers
 @{
     ViewBag.Title = "Home Page";
@@ -7,6 +9,7 @@
 <h2>Name and Age Verification</h2>
 
 <p>
+
     @Html.ValidationSummary()
     
     @using (Html.Form<HomeInputModel>()) {
@@ -22,7 +25,35 @@
         
         @Html.Submit("Verify")
 
+		<input type="button" id="ajaxcall" name="ajaxcall" value="Ajax Call"/>
 		
-		
-    }
+	}
 </p>
+
+<script type="text/javascript">
+
+	$("#ajaxcall").click(function () {
+
+		var homeInputModel = {};
+		homeInputModel.Name = $("#Name").val();
+		homeInputModel.Age = $("#Age").val();
+
+		$.post("/home/IndexJSON",
+			data = homeInputModel,
+			function (data, status) {
+				alert("MyMessage: " + data + "\nStatus: " + status);
+
+				alert(data.MyMessage);
+			},
+			"json");
+
+	});
+
+	function feedbackRecorded(message) {
+		alert(message);
+	}
+	function searchFailed(message) {
+		alert("Search Failed");
+	}
+
+</script>	
