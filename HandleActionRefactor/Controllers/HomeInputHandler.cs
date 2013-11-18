@@ -10,14 +10,5 @@ namespace HandleActionRefactor.Controllers
                 return new HomeResponseModel() { GotoAbout = true };
             return new HomeResponseModel();
         }
-
     }
-
-	public class HomeInputHandlerNoRet : ICommandHandler<HomeInputModel>
-	{
-		public void Handle(HomeInputModel command)
-		{
-			return;
-		}
-	}
 }

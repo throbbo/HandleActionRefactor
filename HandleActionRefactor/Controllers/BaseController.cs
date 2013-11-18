@@ -1,176 +1,197 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Web;
 using System.Web.Mvc;
-using System.Web.Mvc.Resources;
-using System.Web.Script.Serialization;
 using SchoStack.Web;
 
 namespace HandleActionRefactor.Controllers
 {
     public class BaseController : Controller
     {
-    	public IInvoker Invoker { get; set; }
+        public IInvoker Invoker { get; set; }
 
-		public HandleActionResultBuilder<T> Handle<T>(T inputModel)
+		public ActionResultFactoryBuilder<T> Handle<T>(T inputModel)
 		{
-			return new HandleActionResultBuilder<T>(inputModel, Invoker);
+			return new ActionResultFactoryBuilder<T>(Invoker, inputModel);
 		}
     }
 
-	public class HandleActionResultBuilder<T>
+	public class ActionResultFactoryBuilder<T>
 	{
-		private readonly T _inputModel;
 		private readonly IInvoker _invoker;
-		private Func<ActionResult> _success;
-		private Func<ActionResult> _error;
-		
-		public HandleActionResultBuilder(T inputModel, IInvoker invoker)
+		private readonly T _inputModel;
+		private readonly ActionResultFactory<T> _actionResultFactory;
+		private Func<ActionResult> _runOnError;
+        private Func<ActionResult> _runOnSuccess;
+
+	    public ActionResultFactoryBuilder(IInvoker invoker, T inputModel)
 		{
-			_inputModel = inputModel;
 			_invoker = invoker;
+			_inputModel = inputModel;
+			_actionResultFactory = new ActionResultFactory<T>(this);
 		}
 
-		public static implicit operator HandleActionResult<T>(HandleActionResultBuilder<T> builder)
+		public static implicit operator ActionResultFactory<T>(ActionResultFactoryBuilder<T> builder)
 		{
-			return new HandleActionResult<T>(builder);
+			return builder._actionResultFactory;
 		}
 
-		public HandleActionResultBuilder<T> OnSuccess(Func<ActionResult> redirectTo)
+		public ActionResultFactoryBuilder<T> OnError(Func<ActionResult> runOnError )
 		{
-			_success = redirectTo;
-			return this;
+			_runOnError = runOnError;
+			return new ActionResultFactoryBuilder<T>(_invoker, _inputModel);
 		}
 
-		public HandleActionResultBuilder<T> OnError(Func<ActionResult> index)
+        public ActionResultFactoryBuilder<T> OnSuccess(Func<ActionResult> runOnSuccess)
 		{
-			_error = index;
-			return this;
+			_runOnSuccess = runOnSuccess;
+			return new ActionResultFactoryBuilder<T>(_invoker, _inputModel);
+		}
+		public ActionResultFactoryBuilder<T, TRet> Returning<TRet>()
+		{
+            return new ActionResultFactoryBuilder<T, TRet>(_invoker, _inputModel, _runOnError, _runOnSuccess);
 		}
 
-		public HandleActionResultBuilder<T, TRet> Returning<TRet>()
+		public class ActionResultFactory<T> : ActionResult
 		{
-			var result = new HandleActionResultBuilder<T, TRet>(_inputModel, _invoker, _success, _error);
+			private readonly ActionResultFactoryBuilder<T> _builder;
 
-			return result;
-		}
-
-		public class HandleActionResult<T> : ActionResult
-		{
-			private readonly HandleActionResultBuilder<T> _builder;
-			public HandleActionResult(HandleActionResultBuilder<T> builder )
+			public ActionResultFactory(ActionResultFactoryBuilder<T> actionResultFactoryBuilder)
 			{
-				_builder = builder;
+				_builder = actionResultFactoryBuilder;
 			}
 
 			public override void ExecuteResult(ControllerContext context)
 			{
-				if (!context.Controller.ViewData.ModelState.IsValid && _builder._error != null)
+				if(!context.Controller.ViewData.ModelState.IsValid && _builder._runOnError!=null)
 				{
-					_builder._error().ExecuteResult(context);
+					_builder._runOnError().ExecuteResult(context);
 					return;
 				}
 
-				_builder._invoker.Execute(_builder._inputModel);	// Run Handler Get Result
+				_builder._invoker.Execute<T>(_builder._inputModel);
 
-				if (_builder._success != null)
-					_builder._success().ExecuteResult(context);
+				if(_builder._runOnSuccess!=null)
+				{
+					_builder._runOnSuccess();
+					return;
+				}
+			}
+		}
+    }
+
+
+	public class ActionResultFactoryBuilder<T, TRet>
+	{
+        private readonly IInvoker _invoker;
+        private readonly T _inputModel;
+        List<MyObj<TRet, T>> Ons = new List<MyObj<TRet, T>>();
+        private Func<T, ActionResult> _redirectIfOn = null;
+        private Func<ControllerContext, ActionResult> _onSuccess;
+        private Func<T, ActionResult> _runOnError;
+        private readonly ActionResultFactory<T, TRet> _actionResultFactory;
+
+	    public ActionResultFactoryBuilder(IInvoker invoker, T inputModel, Func<ActionResult> runOnError, Func<ActionResult> runOnSuccess)
+		{
+			_invoker = invoker;
+			_inputModel = inputModel;
+	        _actionResultFactory = new ActionResultFactory<T, TRet>(this);
+            if (_runOnError != null) _runOnError = _ => runOnError();
+            if (_onSuccess != null) _onSuccess = _ => runOnSuccess();
+		}
+		public static implicit operator  ActionResultFactory<T, TRet>(ActionResultFactoryBuilder<T, TRet> builder)
+		{
+			return builder._actionResultFactory;
+		}
+
+		public ActionResultFactoryBuilder<T, TRet> On(Func<TRet, bool> funcOn, Func<T, ActionResult> redirectIfOn)
+		{
+
+            var on = new MyObj<TRet, T>() { On = funcOn, Run = redirectIfOn };
+
+            Ons.Add(on);
+
+			return this;
+		}
+
+        public ActionResultFactoryBuilder<T, TRet> OnSuccess(Func<ControllerContext, ActionResult> onSuccess)
+        {
+            _onSuccess = onSuccess; 
+			return this;
+		}
+
+		public ActionResultFactoryBuilder<T, TRet> OnError(Func<T, ActionResult> runOnError)
+		{
+			_runOnError = runOnError;
+			return this;
+		}
+		public class ActionResultFactory<T, TRet> : ActionResult
+		{
+			private readonly ActionResultFactoryBuilder<T, TRet> _builder;
+
+			public ActionResultFactory(ActionResultFactoryBuilder<T,TRet> actionResultFactoryBuilder)
+			{
+				_builder = actionResultFactoryBuilder;
+			}
+
+			public override void ExecuteResult(ControllerContext context)
+			{
+				if (!context.Controller.ViewData.ModelState.IsValid && _builder._runOnError != null)
+				{
+                    _builder._runOnError(_builder._inputModel).ExecuteResult(context);
+					return;
+				}
+                
+                var result = _builder._invoker.Execute<TRet>(_builder._inputModel);
+
+                foreach (var on in _builder.Ons)
+                {
+                    if (on.On != null && on.On(result))
+                    {
+                        on.Run(_builder._inputModel).ExecuteResult(context);
+                        return;
+                    }
+                }
+
+			    if (_builder._onSuccess == null) return;
+
+			    _builder._onSuccess(context).ExecuteResult(context);
 			}
 
 		}
-
-	    public HandleActionResultBuilder<T> OnSuccessWithMessage(Func<RedirectToRouteResult> func)
-	    {
-	        return this;
-	    }
 	}
 
 
-	public class HandleActionResultBuilder<T,TRet> 
-	{
-		private readonly IInvoker _invoker;
-		private readonly T _inputModel;
-		private Func<TRet, ActionResult> _success;
-		private Func<ActionResult> _error;
-		List<MyObj<TRet, T>> Ons = new List<MyObj<TRet, T>>();
-
-		public HandleActionResultBuilder(T inputModel, IInvoker invoker, Func<ActionResult> baseSuccess, Func<ActionResult> baseError) 
-		{
-			_inputModel = inputModel;
-			_invoker = invoker;
-			_success = _ => baseSuccess();
-			_error = baseError;
-		}
-
-
-		public static implicit operator HandleActionResult<T, TRet> (HandleActionResultBuilder<T,TRet> builder )
-		{
-			return new HandleActionResult<T, TRet>(builder);
-		}
-
-		public HandleActionResultBuilder<T, TRet> OnSuccess(Func<TRet, ActionResult> redirectTo)
-		{
-			_success = redirectTo;
-			return this;
-		}
-
-		public HandleActionResultBuilder<T, TRet> OnError(Func<ActionResult> index)
-		{
-			_error = index;
-			return this;
-		}
-
-		public HandleActionResultBuilder<T, TRet> On(Func<TRet, bool> func, Func<T, ActionResult> redirectTo)
-		{
-			var on = new MyObj<TRet, T>() { On = func, Run = redirectTo };
-
-			Ons.Add(on);
-
-			return this;
-		}
-
-        public HandleActionResultBuilder<T, TRet> OnSuccessWithMessage(Func<TRet,ActionResult> redirectTo)
+    public static class ActionResultFactoryBuilderExtensions
+    {
+        public static ActionResultFactoryBuilder<T, TRet> OnSuccessWithMessage<T, TRet>(this ActionResultFactoryBuilder<T, TRet> builder,
+                            Func<ControllerContext, ActionResult > redirectTo, string message)
         {
-            _success = redirectTo;
+            return builder
+                .OnSuccess(x => {
+                                   if(!string.IsNullOrEmpty(message))
+                                       x.Controller.TempData.Add("message", message);
 
-            return this;
+                                   return redirectTo(x);
+                               });
+
         }
 
-		public class HandleActionResult<T, TRet> : ActionResult
-		{
-			private readonly HandleActionResultBuilder<T, TRet> _builder;
-			public HandleActionResult(HandleActionResultBuilder<T,TRet> builder)
-			{
-				_builder = builder;
-			}
+        //public static ActionResultFactoryBuilder<T> OnSuccessWithMessage<T>(this ActionResultFactoryBuilder<T> builder,
+        // Func<ControllerContext, ActionResult> redirectTo, string message)
+        //{
+        //    return builder
+        //        .OnSuccess(x =>
+        //                       {
+        //                           if(!string.IsNullOrEmpty(message))
+        //                               x.Controller.TempData.Add("message", message);
 
-			public override void ExecuteResult(ControllerContext context)
-			{
-				if (!context.Controller.ViewData.ModelState.IsValid && _builder._error != null)
-				{
-					_builder._error().ExecuteResult(context);
-					return;
-				}
+        //                           return redirectTo(x);
+        //                       });
 
-				var _result = _builder._invoker.Execute<TRet>(_builder._inputModel);	// Run Handler Get Result
+        //}
 
-				foreach (var on in _builder.Ons)
-				{
-					if (on.On != null && on.On(_result))
-					{
-						on.Run(_builder._inputModel).ExecuteResult(context);
-						return;
-					}
-				}
 
-				if (_builder._success != null)
-					_builder._success(_result).ExecuteResult(context);
-			}
-
-		}
-
-	}
+    }
 
 
 }
