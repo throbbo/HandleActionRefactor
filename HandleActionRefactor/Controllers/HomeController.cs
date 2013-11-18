@@ -70,26 +70,69 @@ namespace HandleActionRefactor.Controllers
         //        ;
         //}
 
-        [HttpPost]
-        public ActionResult Index5(HomeInputModel inputModel)
-        {
+        //[HttpPost]
+        //public ActionResult Index5(HomeInputModel inputModel)
+        //{
 
-            return Handle(inputModel)
-                .OnError(() => Index())
-                .Returning<HomeResponseModel>()
-                //.OnSuccessWithMessage(x => View("About", x), "Robs Message")
-                ;
+        //    return Handle(inputModel)
+        //        .OnError(() => Index())
+        //        .Returning<HomeResponseModel>()
+        //        //.OnSuccessWithMessage(x => View("About", x), "Robs Message")
+        //        ;
 
-        }
+        //}
+
+
+        //[HttpPost]
+        //public ActionResult IndexOld1(HomeInputModel inputModel)
+        //{
+        //    if (!ModelState.IsValid)
+        //        return Index();
+
+        //    var result = Invoker.Execute<HomeResponseModel>(inputModel);
+        //    if (result.GotoAbout)
+        //        return RedirectToAction("About");
+
+        //    TempData["message"] = "Robs Success Message GotoAbout False";
+        //    return View("Success", result);
+        //}
+
+        //[HttpPost]
+        //public ActionResult Index(HomeInputModel inputModel)
+        //{
+        //    return Handle(inputModel)
+        //        .Returning<HomeResponseModel>()
+        //        .OnError(_ => Index())
+        //        .On(x => x.GotoAbout, y => RedirectToAction("About", y))
+        //        .OnSuccessWithMessage(x => View("Success",x), "Robs Success Message GotoAbout False")
+        //        ;
+        //}
+
+        //[HttpPost]
+        //public ActionResult Index(HomeInputModel inputModel)
+        //{
+
+        //    var tempObj = new TempObj { GotoAbout = true };
+
+        //    return Handle(inputModel)
+        //        .OnSuccessWithMessage(() => View("Success", tempObj), "Robs Success Message GotoAbout False")
+        //        .Returning<HomeResponseModel>()
+        //        .OnError(_ => Index())
+        //        ;
+        //}
+
+
+
 
         [HttpPost]
         public ActionResult Index(HomeInputModel inputModel)
         {
             return Handle(inputModel)
                 .Returning<HomeResponseModel>()
-                .On(x => x.GotoAbout, _ => RedirectToAction("About"))
-                .OnSuccessWithMessage(x => RedirectToAction("About"), "Robs Message GotoAbout False")
-                .OnError(_ => Index());
+                .OnError(_ => Index())
+                .On(x => x.GotoAbout, y => RedirectToAction("About", y))
+                .OnSuccessWithMessage(x => View("Success",x), "Robs Success Message GotoAbout False")
+                ;
         }
 
     	public ActionResult About()
@@ -102,5 +145,8 @@ namespace HandleActionRefactor.Controllers
         }
 	}
 
-
+    public class TempObj
+    {
+        public bool GotoAbout { get; set; }
+    }
 }

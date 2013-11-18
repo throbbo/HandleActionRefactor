@@ -20,8 +20,8 @@ namespace HandleActionRefactor.Controllers
 		private readonly IInvoker _invoker;
 		private readonly T _inputModel;
 		private readonly ActionResultFactory<T> _actionResultFactory;
-		private Func<ActionResult> _runOnError;
-        private Func<ActionResult> _runOnSuccess;
+        private Func<ControllerContext, ActionResult> _runOnError;
+        private Func<ControllerContext, ActionResult> _runOnSuccess;
 
 	    public ActionResultFactoryBuilder(IInvoker invoker, T inputModel)
 		{
@@ -37,16 +37,25 @@ namespace HandleActionRefactor.Controllers
 
 		public ActionResultFactoryBuilder<T> OnError(Func<ActionResult> runOnError )
 		{
-			_runOnError = runOnError;
-			return new ActionResultFactoryBuilder<T>(_invoker, _inputModel);
+            _runOnError = x => runOnError();
+			return this;
 		}
-
+        public ActionResultFactoryBuilder<T> OnError(Func<ControllerContext,ActionResult> runOnError)
+        {
+            _runOnError = runOnError;
+            return this;
+        }
         public ActionResultFactoryBuilder<T> OnSuccess(Func<ActionResult> runOnSuccess)
 		{
-			_runOnSuccess = runOnSuccess;
-			return new ActionResultFactoryBuilder<T>(_invoker, _inputModel);
+            _runOnSuccess = x => runOnSuccess();
+            return this;
 		}
-		public ActionResultFactoryBuilder<T, TRet> Returning<TRet>()
+        public ActionResultFactoryBuilder<T> OnSuccess(Func<ControllerContext, ActionResult> runOnSuccess)
+        {
+            _runOnSuccess = runOnSuccess;
+            return this;
+        }
+        public ActionResultFactoryBuilder<T, TRet> Returning<TRet>()
 		{
             return new ActionResultFactoryBuilder<T, TRet>(_invoker, _inputModel, _runOnError, _runOnSuccess);
 		}
@@ -64,7 +73,7 @@ namespace HandleActionRefactor.Controllers
 			{
 				if(!context.Controller.ViewData.ModelState.IsValid && _builder._runOnError!=null)
 				{
-					_builder._runOnError().ExecuteResult(context);
+					_builder._runOnError(context).ExecuteResult(context);
 					return;
 				}
 
@@ -72,7 +81,7 @@ namespace HandleActionRefactor.Controllers
 
 				if(_builder._runOnSuccess!=null)
 				{
-					_builder._runOnSuccess();
+					_builder._runOnSuccess(context);
 					return;
 				}
 			}
@@ -86,17 +95,17 @@ namespace HandleActionRefactor.Controllers
         private readonly T _inputModel;
         List<MyObj<TRet, T>> Ons = new List<MyObj<TRet, T>>();
         private Func<T, ActionResult> _redirectIfOn = null;
-        private Func<ControllerContext, ActionResult> _onSuccess;
-        private Func<T, ActionResult> _runOnError;
+        private Func<TRet, ControllerContext, ActionResult> _onSuccess;
+        private Func<T, ControllerContext, ActionResult> _runOnError;
         private readonly ActionResultFactory<T, TRet> _actionResultFactory;
 
-	    public ActionResultFactoryBuilder(IInvoker invoker, T inputModel, Func<ActionResult> runOnError, Func<ActionResult> runOnSuccess)
+        public ActionResultFactoryBuilder(IInvoker invoker, T inputModel, Func<ControllerContext, ActionResult> runOnError, Func<ControllerContext, ActionResult> runOnSuccess)
 		{
 			_invoker = invoker;
 			_inputModel = inputModel;
 	        _actionResultFactory = new ActionResultFactory<T, TRet>(this);
-            if (_runOnError != null) _runOnError = _ => runOnError();
-            if (_onSuccess != null) _onSuccess = _ => runOnSuccess();
+            if (_runOnError != null) _runOnError = (result, context) => runOnError(context);
+            if (_onSuccess != null) _onSuccess = (result, context) => runOnSuccess(context);
 		}
 		public static implicit operator  ActionResultFactory<T, TRet>(ActionResultFactoryBuilder<T, TRet> builder)
 		{
@@ -106,22 +115,42 @@ namespace HandleActionRefactor.Controllers
 		public ActionResultFactoryBuilder<T, TRet> On(Func<TRet, bool> funcOn, Func<T, ActionResult> redirectIfOn)
 		{
 
-            var on = new MyObj<TRet, T>() { On = funcOn, Run = redirectIfOn };
+
+            var on = new MyObj<TRet, T>() { On = (a,b) => funcOn(a), Run = (a,b) => redirectIfOn(a) };
 
             Ons.Add(on);
 
 			return this;
 		}
 
-        public ActionResultFactoryBuilder<T, TRet> OnSuccess(Func<ControllerContext, ActionResult> onSuccess)
+        public ActionResultFactoryBuilder<T, TRet> On(Func<TRet, ControllerContext, bool> funcOn, Func<T, ControllerContext, ActionResult> redirectIfOn)
+        {
+
+            var on = new MyObj<TRet, T>() { On = funcOn, Run = redirectIfOn };
+
+            Ons.Add(on);
+
+            return this;
+        }
+
+        public ActionResultFactoryBuilder<T, TRet> OnSuccess(Func<TRet, ControllerContext, ActionResult> onSuccess)
         {
             _onSuccess = onSuccess; 
 			return this;
 		}
-
-		public ActionResultFactoryBuilder<T, TRet> OnError(Func<T, ActionResult> runOnError)
+        public ActionResultFactoryBuilder<T, TRet> OnSuccess(Func<TRet, ActionResult> onSuccess)
+        {
+            _onSuccess = (x,c) => onSuccess(x);
+            return this;
+        }
+        public ActionResultFactoryBuilder<T, TRet> OnError(Func<T, ControllerContext, ActionResult> runOnError)
+        {
+            _runOnError = runOnError;
+            return this;
+        }
+        public ActionResultFactoryBuilder<T, TRet> OnError(Func<T, ActionResult> runOnError)
 		{
-			_runOnError = runOnError;
+			_runOnError = (a,b) => runOnError(a);
 			return this;
 		}
 		public class ActionResultFactory<T, TRet> : ActionResult
@@ -137,7 +166,7 @@ namespace HandleActionRefactor.Controllers
 			{
 				if (!context.Controller.ViewData.ModelState.IsValid && _builder._runOnError != null)
 				{
-                    _builder._runOnError(_builder._inputModel).ExecuteResult(context);
+                    _builder._runOnError(_builder._inputModel, context).ExecuteResult(context);
 					return;
 				}
                 
@@ -145,16 +174,16 @@ namespace HandleActionRefactor.Controllers
 
                 foreach (var on in _builder.Ons)
                 {
-                    if (on.On != null && on.On(result))
+                    if (on.On != null && on.On(result, context))
                     {
-                        on.Run(_builder._inputModel).ExecuteResult(context);
+                        on.Run(_builder._inputModel, context).ExecuteResult(context);
                         return;
                     }
                 }
 
 			    if (_builder._onSuccess == null) return;
 
-			    _builder._onSuccess(context).ExecuteResult(context);
+                _builder._onSuccess(result, context).ExecuteResult(context);
 			}
 
 		}
@@ -163,35 +192,44 @@ namespace HandleActionRefactor.Controllers
 
     public static class ActionResultFactoryBuilderExtensions
     {
-        public static ActionResultFactoryBuilder<T, TRet> OnSuccessWithMessage<T, TRet>(this ActionResultFactoryBuilder<T, TRet> builder,
-                            Func<ControllerContext, ActionResult > redirectTo, string message)
-        {
-            return builder
-                .OnSuccess(x => {
-                                   if(!string.IsNullOrEmpty(message))
-                                       x.Controller.TempData.Add("message", message);
-
-                                   return redirectTo(x);
-                               });
-
-        }
-
-        //public static ActionResultFactoryBuilder<T> OnSuccessWithMessage<T>(this ActionResultFactoryBuilder<T> builder,
-        // Func<ControllerContext, ActionResult> redirectTo, string message)
+        //public static ActionResultFactoryBuilder<T, TRet> OnSuccessWithMessage<T, TRet>(this ActionResultFactoryBuilder<T, TRet> builder,
+        //                    Func<ControllerContext, ActionResult> redirectTo, string message)
         //{
         //    return builder
-        //        .OnSuccess(x =>
-        //                       {
+        //        .OnSuccess(x => {
         //                           if(!string.IsNullOrEmpty(message))
         //                               x.Controller.TempData.Add("message", message);
-
+                                    
         //                           return redirectTo(x);
         //                       });
 
         //}
+        
+        public static ActionResultFactoryBuilder<T, TRet> OnSuccessWithMessage<T, TRet>(this ActionResultFactoryBuilder<T, TRet> builder,
+                            Func<TRet, ActionResult> redirectTo, string message)
+        {
+            return builder
+                .OnSuccess((result,context) =>
+                {
+                    if (!string.IsNullOrEmpty(message))
+                        context.Controller.TempData.Add("message", message);
 
+                    return redirectTo(result);
+                });
+        }
 
+        //public static ActionResultFactoryBuilder<T, TRet> OnSuccessWithMessage<T, TRet>(this ActionResultFactoryBuilder<T, TRet> builder,
+        //                    Func<ActionResult> redirectTo, string message)
+        //{
+        //    return builder
+        //        .OnSuccess((result) =>
+        //        {
+        //            if (!string.IsNullOrEmpty(message))
+        //                context.Controller.TempData.Add("message", message);
+
+        //            return redirectTo();
+        //        });
+        //}
     }
-
 
 }

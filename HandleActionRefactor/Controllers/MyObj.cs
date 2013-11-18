@@ -5,7 +5,7 @@ namespace HandleActionRefactor.Controllers
 {
 	public class MyObj<TRet, T>
 	{
-		public Func<TRet, bool> On;
-		public Func<T, ActionResult> Run;
+        public Func<TRet, ControllerContext, bool> On;
+        public Func<T, ControllerContext, ActionResult> Run;
 	}
 }

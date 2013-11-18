@@ -1,0 +1,22 @@
+﻿@model HomeResponseModel
+@using HandleActionRefactor.Controllers
+@{
+    ViewBag.Title = "Success Page";
+}
+
+<h2>Success has been found</h2>
+
+
+@Html.ValidationSummary()
+   
+TempData Success Message: @TempData["message"]
+    
+<div>
+    <span>GotoAbout: @Model.GotoAbout</span>
+
+</div>
+<div>
+    <span>Data2: </span>
+
+</div>
+        
