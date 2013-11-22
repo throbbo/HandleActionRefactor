@@ -86,7 +86,12 @@ namespace HandleActionRefactor.Controllers
 				}
 			}
 		}
-    }
+
+	    public void OnErrorAjax1(Func<JsonResult> func, Func<ActionResult> func1)
+	    {
+	        throw new NotImplementedException();
+	    }
+	}
 
 
 	public class ActionResultFactoryBuilder<T, TRet>
@@ -97,6 +102,7 @@ namespace HandleActionRefactor.Controllers
         private Func<T, ActionResult> _redirectIfOn = null;
         private Func<TRet, ControllerContext, ActionResult> _onSuccess;
         private Func<T, ControllerContext, ActionResult> _runOnError;
+        private Func<T, ControllerContext, ActionResult> _runOnErrorAjax;
         private readonly ActionResultFactory<T, TRet> _actionResultFactory;
 
         public ActionResultFactoryBuilder(IInvoker invoker, T inputModel, Func<ControllerContext, ActionResult> runOnError, Func<ControllerContext, ActionResult> runOnSuccess)
@@ -142,6 +148,10 @@ namespace HandleActionRefactor.Controllers
         {
             _onSuccess = (x,c) => onSuccess(x);
             return this;
+        }
+        public Func<T, ControllerContext, ActionResult> OnError()
+        {
+            return _runOnError;
         }
         public ActionResultFactoryBuilder<T, TRet> OnError(Func<T, ControllerContext, ActionResult> runOnError)
         {
@@ -192,19 +202,7 @@ namespace HandleActionRefactor.Controllers
 
     public static class ActionResultFactoryBuilderExtensions
     {
-        //public static ActionResultFactoryBuilder<T, TRet> OnSuccessWithMessage<T, TRet>(this ActionResultFactoryBuilder<T, TRet> builder,
-        //                    Func<ControllerContext, ActionResult> redirectTo, string message)
-        //{
-        //    return builder
-        //        .OnSuccess(x => {
-        //                           if(!string.IsNullOrEmpty(message))
-        //                               x.Controller.TempData.Add("message", message);
-                                    
-        //                           return redirectTo(x);
-        //                       });
-
-        //}
-        
+       
         public static ActionResultFactoryBuilder<T, TRet> OnSuccessWithMessage<T, TRet>(this ActionResultFactoryBuilder<T, TRet> builder,
                             Func<TRet, ActionResult> redirectTo, string message)
         {
@@ -218,18 +216,22 @@ namespace HandleActionRefactor.Controllers
                 });
         }
 
-        //public static ActionResultFactoryBuilder<T, TRet> OnSuccessWithMessage<T, TRet>(this ActionResultFactoryBuilder<T, TRet> builder,
-        //                    Func<ActionResult> redirectTo, string message)
-        //{
-        //    return builder
-        //        .OnSuccess((result) =>
-        //        {
-        //            if (!string.IsNullOrEmpty(message))
-        //                context.Controller.TempData.Add("message", message);
+        public static ActionResultFactoryBuilder<T> OnErrorAjax<T>(this ActionResultFactoryBuilder<T> builder,
+                            Func<ActionResult> runOnErrorAjax, Func<ActionResult> runOnError)
+        {
+            return builder
+                .OnError((context) =>
+                {
+                    if (context.HttpContext.Request.IsAjaxRequest())
+                    {
+                        context.Controller.TempData.Add("message", "Got an Ajax error");
 
-        //            return redirectTo();
-        //        });
-        //}
+                        return runOnErrorAjax();
+                    }
+
+                    return runOnErrorAjax();
+                });
+        }
     }
 
 }

@@ -132,7 +132,7 @@ namespace HandleActionRefactor.Controllers
             //    .OnError(_ => Index())
             //    .On(x => x.GotoAbout, y => RedirectToAction("About", y))
             //    .OnSuccessWithMessage(x => View("Success",x), "Robs Success Message GotoAbout False");
-            var tmpObj = new TempObj {GotoAbout = true, MyMessage = "Test Ajax Return Mesasge"};
+            var tmpObj = new TempObj {GotoAbout = true, MyMessage = "Test Ajax Return Mesasge", AjaxSuccess = false};
             var res = new JsonResult {Data = tmpObj};
 
             return res;
@@ -141,9 +141,8 @@ namespace HandleActionRefactor.Controllers
         public ActionResult Index(HomeInputModel inputModel)
         {
             return Handle(inputModel)
+                .OnErrorAjax(() => { return Json(new {status = "error", message="asdfasdf"}); }, () => Index())
                 .Returning<HomeResponseModel>()
-                .OnError(_ => Index())
-                .On(x => x.GotoAbout, y => RedirectToAction("About", y))
                 .OnSuccessWithMessage(x => View("Success", x), "Robs Success Message GotoAbout False")
                 ;
         }
@@ -155,10 +154,19 @@ namespace HandleActionRefactor.Controllers
 
             return View();
         }
-	}
+        public ActionResult Error()
+        {
+
+            //var list = new List<RobT> {new RobT{Name="rob",Age=45}, new RobT{Name="pete",Age=10}, new RobT{Name="john",Age=22}};
+            //var aaa = list.RobsForeach(x => x.Name = x.Name+"sdaf").ToList();
+
+            return View();
+        }
+    }
 
     public class TempObj
     {
+        public bool AjaxSuccess;
         public bool GotoAbout { get; set; }
         public string MyMessage { get; set; }
     }

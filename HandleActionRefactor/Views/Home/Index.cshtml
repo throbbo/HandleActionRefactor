@@ -41,13 +41,11 @@
 		$.post("/home/IndexJSON",
 			data = homeInputModel,
 			function (data, status) {
-				alert("MyMessage: " + data + "\nStatus: " + status);
-
-				alert(data.MyMessage);
+				alert("MyMessage: " + data.message + " data.status"+data.message+ "\nStatus: " + status);
 			},
 			"json");
 
-	});
+	});	
 
 	function feedbackRecorded(message) {
 		alert(message);
